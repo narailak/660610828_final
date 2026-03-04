@@ -1,0 +1,4 @@
+bool enable   # true = ตัด human control
+---
+bool success
+string message

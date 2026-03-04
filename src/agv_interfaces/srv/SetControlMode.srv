@@ -1,0 +1,4 @@
+int8 mode   # 0=MANUAL, 1=AUTO, 2=SAFE
+---
+bool success
+string message
