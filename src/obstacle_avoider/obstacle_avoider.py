@@ -16,11 +16,13 @@ class ObstacleAvoider(Node):
         self.is_escaping = False
         self.get_logger().info('High-Speed Obstacle Avoider Started...')
 
+        
     def scan_callback(self, msg):
         min_dist = float('inf')
         min_angle_rad = 0.0
 
         for i, r in enumerate(msg.ranges):
+            # กรอง noise ขั้นต่ำที่ 0.02 เมตร
             if 0.02 < r < msg.range_max:
                 if r < min_dist:
                     min_dist = r
@@ -29,7 +31,20 @@ class ObstacleAvoider(Node):
         if min_dist == float('inf'):
             return
 
-        dist_mm = min_dist * 1000.0
+        # 1. ระยะที่อ่านได้จริงจาก "จุดกึ่งกลาง LiDAR" (ที่ระบบขึ้น ~100 mm)
+        raw_dist_mm = min_dist * 1000.0
+
+        # -------------------------------------------------------------------
+        # ⚙️ 2. ปรับค่า Offset ตามที่คำนวณได้
+        # ระยะจากจุดศูนย์กลาง LiDAR ถึงขอบหน้าหุ่นยนต์ = 35 mm
+        # -------------------------------------------------------------------
+        ROBOT_RADIUS_MM = 35.0 
+        
+        # ระยะที่แท้จริงจาก "ขอบหุ่นยนต์" ถึงสิ่งกีดขวาง (จะเป็น ~65 mm ตามที่วัดได้จริง)
+        dist_mm = raw_dist_mm - ROBOT_RADIUS_MM
+
+        if dist_mm < 0:
+            dist_mm = 0.0
 
         robot_angle_rad = min_angle_rad + math.pi
         robot_deg = math.degrees(robot_angle_rad)
@@ -37,17 +52,15 @@ class ObstacleAvoider(Node):
 
         twist = Twist()
 
+        # 3. ใช้ระยะ dist_mm ที่แม่นยำแล้วในการตัดสินใจ
         if dist_mm < 150.0:
             if dist_mm < 120.0:
-                # --- โซนอันตราย (< 120 mm) ---
+                # --- โซนอันตราย (< 120 mm จากขอบหุ่น) ---
                 error = 120.0 - dist_mm
-                
-                # 🚀 จุดที่ปรับความเร็ว: เพิ่ม Kp และ Max Speed
-                kp = 0.008  # ลองปรับค่านี้ดูได้ครับ (เช่น 0.005 - 0.01)
-                max_speed = 0.6  # ความเร็วสูงสุด (m/s)
+                kp = 0.008  
+                max_speed = 0.3  
                 
                 escape_speed = min(error * kp, max_speed)
-
                 escape_angle_rad = robot_angle_rad + math.pi
                 
                 twist.linear.x = escape_speed * math.cos(escape_angle_rad)
@@ -57,7 +70,7 @@ class ObstacleAvoider(Node):
                 self.is_escaping = True
                 
                 self.get_logger().warn(
-                    f'🔴 ESCAPING | Angle: {cw_deg:.1f}°, Dist: {dist_mm:.1f} mm, Speed: {escape_speed:.3f}'
+                    f'🔴 ESCAPING | Angle: {cw_deg:.1f}° | Dist from Edge: {dist_mm:.1f} mm (Raw Lidar: {raw_dist_mm:.1f} mm)'
                 )
 
             else:
@@ -67,10 +80,9 @@ class ObstacleAvoider(Node):
                     self.is_escaping = False
                     
                 self.get_logger().info(
-                    f'🟡 WARNING | Object detected at {cw_deg:.1f}°, Dist: {dist_mm:.1f} mm'
+                    f'🟡 WARNING | Object at {cw_deg:.1f}° | Dist: {dist_mm:.1f} mm'
                 )
         else:
-            # --- โซนปลอดภัย (> 150 mm) ---
             if self.is_escaping:
                 self.pub_cmd.publish(Twist())
                 self.is_escaping = False
