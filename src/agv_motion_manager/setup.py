@@ -1,8 +1,6 @@
-import os
-from glob import glob
 from setuptools import find_packages, setup
 
-package_name = 'agv_hand_control'
+package_name = 'agv_motion_manager'
 
 setup(
     name=package_name,
@@ -11,21 +9,17 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-            
         ('share/' + package_name, ['package.xml']),
-        
-        # ใช้ glob เพื่อก๊อปปี้ไฟล์นามสกุล .task ทั้งหมดในโฟลเดอร์ resource
-        (os.path.join('share', package_name, 'resource'), glob('resource/*.task')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='aorus-ubun',
     maintainer_email='oatdev54@gmail.com',
-    description='AGV control using MediaPipe hand gesture',
+    description='AGV motion manager',
     license='Apache License 2.0',
     entry_points={
         'console_scripts': [
-            'mediapipe_node = agv_hand_control.mediapipe_node:main',
+            'motion_manager = agv_motion_manager.motion_manager:main',
         ],
     },
 )
